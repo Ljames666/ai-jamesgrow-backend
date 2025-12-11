@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 export type MessageDocument = Message & Document;
 
-export type AiModel = 'gemini' | 'gpt' | 'you';
+export type AiModel = 'gemini' | 'gpt';
 
 @Schema({ timestamps: true })
 export class Message {

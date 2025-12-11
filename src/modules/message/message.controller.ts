@@ -47,6 +47,8 @@ export class ChatController {
     @Request() req: ExpressRequest & { user: { _id: string } },
     @Body() dto: ChatRequestDto,
   ) {
+    console.log('ChatController sendMessage called with dto:', dto);
+    console.log('User ID:', req.user._id);
     const userId = req.user._id;
 
     // Salvar mensagem do usuário

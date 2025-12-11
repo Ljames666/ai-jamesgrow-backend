@@ -11,13 +11,18 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UseGuards } from '@nestjs/common';
+// import { UseGuards } from '@nestjs/common';
 import { AiService } from '../../core/ai/ai.service';
 import { MessageService } from '../message/message.service';
 import { AiModel } from '../message/message.schema';
 
 interface AuthenticatedSocket extends Socket {
   user?: { _id: string; username: string };
+}
+
+interface JwtPayload {
+  sub: string;
+  username: string;
 }
 
 @WebSocketGateway({
@@ -36,7 +41,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private messageService: MessageService,
   ) {}
 
-  async handleConnection(client: AuthenticatedSocket, ...args: any[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleConnection(client: AuthenticatedSocket, ...args: any[]) {
     const token = this.extractTokenFromHandshake(client);
     if (!token) {
       client.disconnect(true);
@@ -44,22 +50,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const payload = this.jwtService.verify(token, {
+      const payload: JwtPayload = this.jwtService.verify(token, {
         secret: this.configService.get('JWT_SECRET'),
       });
       client.user = { _id: payload.sub, username: payload.username };
       console.log(`User ${payload.username} connected via WebSocket`);
     } catch (err) {
-      console.warn('Invalid JWT in WebSocket handshake', err.message);
+      console.warn('Invalid JWT in WebSocket handshake', err);
       client.disconnect(true);
     }
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
+    client.disconnect(true);
     console.log('Client disconnected');
   }
 
-  private extractTokenFromHandshake(client: AuthenticatedSocket): string | null {
+  private extractTokenFromHandshake(
+    client: AuthenticatedSocket,
+  ): string | null {
     const authHeader = client.handshake.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7);
@@ -71,7 +80,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('chat:message')
   async handleMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody()  { content: string; aiModel: AiModel },
+    @MessageBody() data: { content: string; aiModel: AiModel },
   ) {
     if (!client.user) {
       client.emit('error', { message: 'Unauthorized' });
@@ -93,7 +102,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       aiResponse = await provider.generateResponse(content);
     } catch (error) {
       client.emit('error', {
-        message: `Failed to get response from ${aiModel}: ${error.message}`,
+        message: `Failed to get response from ${aiModel}: ${error}`,
       });
       return;
     }

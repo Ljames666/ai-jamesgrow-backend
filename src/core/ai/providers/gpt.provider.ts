@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 // src/core/ai/providers/gpt.provider.ts
 import { OpenAI } from 'openai';
 import { AiProvider } from '../ai.provider.interface';
@@ -14,17 +15,28 @@ export class GptProvider implements AiProvider {
     this.openai = new OpenAI({ apiKey });
   }
 
-  async generateResponse(prompt: string): Promise<string> {
-    try {
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        timeout: 10000,
-      });
-      return completion.choices[0].message.content || '';
-    } catch (error) {
-      console.error('OpenAI error:', error);
-      throw new Error('Failed to get response from GPT');
+  async generateResponse(content: string, retries = 5): Promise<string> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content }],
+        });
+        console.log('GPT response:', response);
+
+        return response.choices[0].message.content ?? '';
+      } catch (err: any) {
+        if (err.status === 429) {
+          const wait = Math.pow(2, attempt) * 1000; // Exponential backoff
+          console.log(
+            `Limite atingido. Tentando novamente em ${wait / 1000}s...`,
+          );
+          await new Promise((r) => setTimeout(r, wait));
+        } else {
+          throw err; // outro erro, não é de limite
+        }
+      }
     }
+    throw new Error('Número máximo de tentativas excedido');
   }
 }

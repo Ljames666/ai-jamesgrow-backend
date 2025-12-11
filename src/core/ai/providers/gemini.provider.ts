@@ -1,26 +1,29 @@
 // src/core/ai/providers/gemini.provider.ts
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { AiProvider } from '../ai.provider.interface';
 import { ConfigService } from '@nestjs/config';
 
 export class GeminiProvider implements AiProvider {
-  private genAi: GoogleGenerativeAI;
-  private model: any;
+  private genAi: GoogleGenAI;
+  private model: string;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is missing');
     }
-    this.genAi = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAi.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    this.genAi = new GoogleGenAI({ apiKey });
+    this.model = 'gemini-2.5-flash-lite';
   }
 
-  async generateResponse(prompt: string): Promise<string> {
+  async generateResponse(contents: string): Promise<string> {
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      return response.text();
+      const result = await this.genAi.models.generateContent({
+        model: this.model,
+        contents,
+      });
+
+      return result.text ?? '';
     } catch (error) {
       console.error('Gemini error:', error);
       throw new Error('Failed to get response from Gemini');
