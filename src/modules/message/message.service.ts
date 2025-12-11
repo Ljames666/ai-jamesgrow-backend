@@ -26,7 +26,7 @@ export class MessageService {
   }
 
   async findAllByUser(userId: string, aiModel?: AiModel): Promise<Message[]> {
-    const filter: any = { userId };
+    const filter: { userId: string; aiModel?: AiModel } = { userId };
     if (aiModel) filter.aiModel = aiModel;
     return this.messageModel.find(filter).sort({ createdAt: 1 }).exec();
   }
