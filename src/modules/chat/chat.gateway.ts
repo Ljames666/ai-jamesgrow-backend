@@ -27,7 +27,7 @@ interface JwtPayload {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: 'http://localhost:3000',
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
