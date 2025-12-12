@@ -25,9 +25,10 @@ interface JwtPayload {
   username: string;
 }
 
+const configService = new ConfigService();
 @WebSocketGateway({
   cors: {
-    origin: 'http://localhost:3000',
+    origin: configService.get<string>('ENABLE_CORS'),
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
