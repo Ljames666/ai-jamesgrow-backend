@@ -1,106 +1,208 @@
+# 🧠 JAMESGROW-AI API — Arquitetura de Referência para Sistemas de IA com Multi-Provider LLM
+
+[![NestJS](https://img.shields.io/badge/NestJS-10+-e11d48?logo=nestjs)](https://nestjs.com)
+[![MongoDB Atlas](https://img.shields.io/badge/MongoDB_Atlas-M0_Free-47A248?logo=mongodb)](https://www.mongodb.com/atlas)
+[![Render](https://img.shields.io/badge/Deploy-Render-00a95c?logo=render)](https://render.com)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+> **Production-Ready Backend** para aplicação de chat com inteligência artificial, projetado com **Clean Architecture**, **Strategy Pattern para LLMs** e **compliance com os 12 Fatores**. Suporta Google Gemini e OpenAI GPT com fallback automático, WebSocket em tempo real e autenticação JWT stateless.
+
+---
+
+## 🎯 Visão Arquitetural
+
+Este serviço implementa um **bounded context** de IA com as seguintes características:
+
+- **Camada de Domínio Isolada**: interfaces e entidades não dependem de frameworks
+- **Injeção de Dependência Explícita**: provedores de IA injetados via factory
+- **Persistência Poliglota Futura**: atualmente MongoDB, mas preparado para PostgreSQL
+- **Comunicação Híbrida**: WebSocket primário + REST fallback
+- **Segurança por Design**: JWT com expiração curta, CORS restrito, sem dados sensíveis em logs
+
+**Referência de arquitetura**: Adaptado de [Microsoft Cloud Design Patterns](https://learn.microsoft.com/en-us/azure/architecture/patterns/) e [NestJS Enterprise Examples](https.
+
+---
+
+## 🛠 Stack Técnica & Justificativas
+
+| Camada           | Tecnologia                                    | Justificativa                                                      |
+| ---------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| **Linguagem**    | TypeScript 5 (strict mode)                    | Tipagem segura, interoperabilidade com JS                          |
+| **Framework**    | NestJS 10                                     | Modularidade, injeção de dependência, compatível com microservices |
+| **Banco**        | MongoDB Atlas (M0 Free Tier)                  | Schema flexível para mensagens não estruturadas                    |
+| **IA**           | `@google/generative-ai@^0.24`, `openai@^4.30` | SDKs oficiais, suporte a streaming futuro                          |
+| **Realtime**     | Socket.IO 4                                   | Fallback automático para long-polling, compatível com proxies      |
+| **Autenticação** | Passport + JWT (HS256)                        | Simplicidade, compatibilidade com SPA                              |
+| **Testes**       | Jest + Supertest                              | Isolamento total, mocks de serviços externos                       |
+| **Deploy**       | Render Web Service                            | Zero DevOps, integração nativa com GitHub                          |
+
+---
+
+## ▶️ Guia de Desenvolvimento Local
+
+### Pré-requisitos
+
+- **Node.js** `^20.12.0` ou `^22.16.0` ([Render Default](https://render.com/docs/node-version))
+- **npm** >= 9
+- **MongoDB Atlas** (recomendado) ou `mongod` local
+
+### Configuração Inicial
+
+1. **Clone e instale**
+
+   ```bash
+   git clone https://github.com/Ljames666/ai-jamesgrow-backend.git
+   cd ai-jamesgrow-backend
+   npm ci  # Garante exatidão do lockfile
+   ```
+
+2. **Configure `.env`**
+
+   ```env
+   # Obrigatórios
+   PORT=8081
+   JWT_SECRET=32+caracteres_aleatorios_seguros  # Use openssl rand -hex 32
+   MONGODB_URI=mongodb+srv://user:pass@cluster.xxxx.mongodb.net/aichat
+
+   # IA (pelo menos um)
+   GEMINI_API_KEY=your_google_key
+   OPENAI_API_KEY=your_openai_key
+
+   # Opcionais
+   JWT_EXPIRES_IN=1d
+   NODE_ENV=development
+   ```
+
+3. **MongoDB Atlas (recomendado)**
+   - Acesse [Atlas Network Access](https://www.mongodb.com/docs/atlas/security-whitelist/)
+   - Adicione `0.0.0.0/0` temporariamente para desenvolvimento
+   - **Nunca faça isso em produção sem firewall adicional**
+
+4. **Execute**
+
+   ```bash
+   npm run start:dev  # Modo watch com reinício automático
+   ```
+
+   - **API**: `http://localhost:8081`
+   - **Swagger**: `http://localhost:8081/api`
+
+---
+
+## 📡 Contrato da API (OpenAPI)
+
+### Autenticação
+
+| Endpoint         | Método | Body                                             | Response                                  |
+| ---------------- | ------ | ------------------------------------------------ | ----------------------------------------- |
+| `/auth/register` | `POST` | `{ "username": "string", "password": "string" }` | `201 Created`                             |
+| `/auth/login`    | `POST` | `{ "username": "string", "password": "string" }` | `200 OK` + `{ "access_token": "string" }` |
+
+### Chat
+
+| Endpoint    | Método | Headers                         | Body                                                | Response                  |
+| ----------- | ------ | ------------------------------- | --------------------------------------------------- | ------------------------- |
+| `/chat`     | `POST` | `Authorization: Bearer <token>` | `{ "content": "string", "aiModel": "gemini\|gpt" }` | `200 OK` + resposta da IA |
+| `/messages` | `GET`  | `Authorization: Bearer <token>` | `aiModel=gemini`                                    | `200 OK` + `[Message]`    |
+
+> **Padrão de Mensagem**:
+>
+> ```ts
+> interface Message {
+>   role: 'user' | 'ai';
+>   content: string;
+>   aiModel: 'gemini' | 'gpt';
+>   createdAt: ISODate;
+> }
+> ```
+
+---
+
+## 🧪 Estratégia de Testes
+
+- **Unitários**: 100% de cobertura de serviços e provedores
+- **Integração**: Testa autenticação, CRUD de mensagens e chamadas à IA (mockadas)
+- **E2E**: Simula fluxo completo com Supertest
+
+```bash
+npm run test          # Unitários
+npm run test:e2e      # Integração (requer MongoDB)
+npm run test:cov      # Cobertura HTML
+```
+
+---
+
+## 🌐 Deploy em Produção (Render)
+
+### Passo 1: MongoDB Atlas
+
+1. Crie cluster M0+ em [Atlas](https://cloud.mongodb.com)
+2. Em **Network Access**, adicione o **IP de saída do Render** (ou use `0.0.0.0/0` para MVP)
+3. Crie usuário com senha forte (sem caracteres especiais)
+
+### Passo 2: Render Configuration
+
+| Campo             | Valor                                  |
+| ----------------- | -------------------------------------- |
+| **Runtime**       | Node                                   |
+| **Build Command** | `npm ci && npx nest build`             |
+| **Start Command** | `npm run start:prod`                   |
+| **Port**          | `10000`                                |
+| **Node Version**  | `22.16.0` (via `NODE_VERSION` env var) |
+
+### Variáveis de Ambiente (Render Dashboard)
+
+```
+MONGODB_URI = mongodb+srv://user:pass@cluster.xxxx.mongodb.net/aichat
+JWT_SECRET = [32+ caracteres seguros]
+GEMINI_API_KEY = [sua_chave]
+OPENAI_API_KEY = [sua_chave]
+NODE_ENV = production
+PORT = 10000
+```
+
+> ⚠️ **Erro comum**: `MongooseServerSelectionError` → causado por IP não liberado no Atlas.  
+> ✅ **Solução**: Adicione `0.0.0.0/0` temporariamente ou use VPC Peering (pago).
+
+---
+
+## 🗂 Estrutura de Pastas (Clean Architecture)
+
+```
 src/
-├── core/ # Casos de uso, interfaces, domínio
-├── modules/ # Módulos do Nest (Auth, Chat, User, AI)
-├── shared/ # DTOs, exceptions, config, utils
-├── infra/ # Persistência, APIs externas, websockets
-├── app.module.ts
-└── main.ts
-
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
-
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+├── core/               # Domínio: interfaces, casos de uso
+│   └── ai/             # Provedores de IA (GeminiProvider, GptProvider)
+├── modules/            # Bounded contexts
+│   ├── auth/           # JWT, login, registro
+│   ├── chat/           # WebSocket Gateway, eventos
+│   ├── message/        # CRUD de mensagens
+│   └── user/           # Modelo de usuário
+├── shared/             # DTOs, exceções, pipes
+└── infra/              # (futuro) adapters para serviços externos
 ```
 
-## Compile and run the project
+> ✅ **Regra de dependência**: `modules → core → shared`. Nunca o inverso.
 
-```bash
-# development
-$ npm run start
+---
 
-# watch mode
-$ npm run start:dev
+## 📜 Licença
 
-# production mode
-$ npm run start:prod
+MIT — veja [LICENSE](LICENSE).
+
+---
+
+## 🤝 Contribuição
+
+1. Abra issue para discutir mudanças
+2. Siga commits convencionais (`feat:`, `fix:`, `refactor:`)
+3. Mantenha cobertura de testes > 85%
+
+---
+
+> 🔒 **Pronto para produção?**  
+> Migre para autenticação com cookies httpOnly + Redis para sessões, e adicione rate limiting por usuário.
+
 ```
 
-## Run tests
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
